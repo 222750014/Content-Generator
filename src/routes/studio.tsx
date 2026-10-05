@@ -138,6 +138,40 @@ function ShareMenu({ text }: { text: string }) {
   );
 }
 
+async function copyImageBlob(src: string): Promise<boolean> {
+  try {
+    const blob = await (await fetch(src)).blob();
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    return true;
+  } catch { return false; }
+}
+
+function ImageShareMenu({ src, text }: { src: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const share = async (s: (typeof SOCIALS)[number]) => {
+    const ok = await copyImageBlob(src);
+    window.open(s.url(text), "_blank", "noopener");
+    toast.success(ok
+      ? (s.paste ? `Copied image — paste it into your ${s.name} post` : `Copied image — opening ${s.name}…`)
+      : `Opening ${s.name}… (couldn't copy the image — use Download instead)`);
+    setOpen(false);
+  };
+  return (
+    <div className="relative">
+      <GhostBtn onClick={() => setOpen((o) => !o)}><Share2 className="h-3.5 w-3.5" /> Share to socials</GhostBtn>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg glass p-1 shadow-glow">
+          {SOCIALS.map((s) => (
+            <button key={s.name} onClick={() => share(s)} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-secondary">
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Content ---------- */
 const TYPES = ["Instagram Post", "LinkedIn Post", "Blog Post", "Email", "Caption", "Advertisement", "Product Description", "Professional Announcement", "Educational Post", "Personal Learning Post", "Project Showcase", "AI/Technology Post", "Story", "Quote", "Short-form Content"];
 const TONES = ["Professional", "Friendly", "Educational", "Inspirational", "Funny", "Creative", "Technical", "Casual", "Persuasive", "Conversational"];

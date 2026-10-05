@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { PenLine, ImageIcon, Code2, Sparkles, Copy, Download, RefreshCw, Check, Loader2, Wand2, Send, Share2 } from "lucide-react";
 import { genContent, refineContent, genCode, codeAction, genImage } from "@/lib/ai.functions";
-import { postToLinkedIn } from "@/lib/linkedin.functions";
+import { postToLinkedIn, postLinkedInImage } from "@/lib/linkedin.functions";
 
 export const Route = createFileRoute("/studio")({
   head: () => ({
@@ -120,6 +120,40 @@ function ShareMenu({ text }: { text: string }) {
     navigator.clipboard.writeText(text).catch(() => {});
     window.open(s.url(text), "_blank", "noopener");
     toast.success(s.paste ? `Copied — paste it into your ${s.name} post` : `Opening ${s.name}…`);
+    setOpen(false);
+  };
+  return (
+    <div className="relative">
+      <GhostBtn onClick={() => setOpen((o) => !o)}><Share2 className="h-3.5 w-3.5" /> Share to socials</GhostBtn>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg glass p-1 shadow-glow">
+          {SOCIALS.map((s) => (
+            <button key={s.name} onClick={() => share(s)} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-secondary">
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+async function copyImageBlob(src: string): Promise<boolean> {
+  try {
+    const blob = await (await fetch(src)).blob();
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    return true;
+  } catch { return false; }
+}
+
+function ImageShareMenu({ src, text }: { src: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const share = async (s: (typeof SOCIALS)[number]) => {
+    const ok = await copyImageBlob(src);
+    window.open(s.url(text), "_blank", "noopener");
+    toast.success(ok
+      ? (s.paste ? `Copied image — paste it into your ${s.name} post` : `Copied image — opening ${s.name}…`)
+      : `Opening ${s.name}… (couldn't copy the image — use Download instead)`);
     setOpen(false);
   };
   return (
@@ -270,6 +304,18 @@ function ImageStudio() {
     } catch (e) { toast.error(errMsg(e)); } finally { setLoading(false); }
   };
   const current = images[0];
+  const postImg = useServerFn(postLinkedInImage);
+  const [caption, setCaption] = useState("");
+  const [posting, setPosting] = useState(false);
+  const doPost = async () => {
+    if (!current) return;
+    if (!window.confirm("Publish this image publicly to your LinkedIn now?")) return;
+    setPosting(true);
+    try {
+      const r = await postImg({ data: { image: current.src, text: caption.trim() || current.prompt } });
+      toast.success("Posted to LinkedIn", { action: { label: "View", onClick: () => window.open(r.url, "_blank") } });
+    } catch (e) { toast.error(errMsg(e)); } finally { setPosting(false); }
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
@@ -290,11 +336,16 @@ function ImageStudio() {
           ) : current ? (
             <div className="w-full">
               <img src={current.src} alt={current.prompt} className="mx-auto max-h-[560px] rounded-xl" />
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <GhostBtn onClick={() => run(current.prompt)}><RefreshCw className="h-3.5 w-3.5" /> Regenerate</GhostBtn>
-                <GhostBtn onClick={() => run(current.prompt + ", alternative variation")}><Sparkles className="h-3.5 w-3.5" /> Create Variation</GhostBtn>
-                <GhostBtn onClick={() => setPrompt(current.prompt)}><PenLine className="h-3.5 w-3.5" /> Edit Prompt</GhostBtn>
-                <GhostBtn onClick={() => download("contentflow-image.png", current.src)}><Download className="h-3.5 w-3.5" /> Download</GhostBtn>
+              <div className="mt-4 space-y-3">
+                <input className={field} placeholder="Caption (used when posting — leave empty to use your prompt)" value={caption} onChange={(e) => setCaption(e.target.value)} />
+                <div className="flex flex-wrap justify-center gap-2">
+                  <GhostBtn disabled={posting} onClick={doPost}>{posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Post to LinkedIn</GhostBtn>
+                  <ImageShareMenu src={current.src} text={caption.trim() || current.prompt} />
+                  <GhostBtn onClick={() => run(current.prompt)}><RefreshCw className="h-3.5 w-3.5" /> Regenerate</GhostBtn>
+                  <GhostBtn onClick={() => run(current.prompt + ", alternative variation")}><Sparkles className="h-3.5 w-3.5" /> Create Variation</GhostBtn>
+                  <GhostBtn onClick={() => setPrompt(current.prompt)}><PenLine className="h-3.5 w-3.5" /> Edit Prompt</GhostBtn>
+                  <GhostBtn onClick={() => download("contentflow-image.png", current.src)}><Download className="h-3.5 w-3.5" /> Download</GhostBtn>
+                </div>
               </div>
             </div>
           ) : (

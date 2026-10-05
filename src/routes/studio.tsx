@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { PenLine, ImageIcon, Code2, Sparkles, Copy, Download, RefreshCw, Check, Loader2, Wand2, Send } from "lucide-react";
+import { PenLine, ImageIcon, Code2, Sparkles, Copy, Download, RefreshCw, Check, Loader2, Wand2, Send, Share2 } from "lucide-react";
 import { genContent, refineContent, genCode, codeAction, genImage } from "@/lib/ai.functions";
 import { postToLinkedIn } from "@/lib/linkedin.functions";
 
@@ -106,6 +106,38 @@ function download(name: string, content: string, type = "text/plain") {
 }
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
 
+const SOCIALS: { name: string; url: (t: string) => string; paste?: boolean }[] = [
+  { name: "X (Twitter)", url: (t) => `https://x.com/intent/post?text=${encodeURIComponent(t.slice(0, 280))}` },
+  { name: "WhatsApp", url: (t) => `https://wa.me/?text=${encodeURIComponent(t)}` },
+  { name: "Facebook", url: () => "https://www.facebook.com/", paste: true },
+  { name: "Instagram", url: () => "https://www.instagram.com/", paste: true },
+  { name: "Threads", url: (t) => `https://www.threads.net/intent/post?text=${encodeURIComponent(t)}` },
+];
+
+function ShareMenu({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const share = (s: (typeof SOCIALS)[number]) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    window.open(s.url(text), "_blank", "noopener");
+    toast.success(s.paste ? `Copied — paste it into your ${s.name} post` : `Opening ${s.name}…`);
+    setOpen(false);
+  };
+  return (
+    <div className="relative">
+      <GhostBtn onClick={() => setOpen((o) => !o)}><Share2 className="h-3.5 w-3.5" /> Share to socials</GhostBtn>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg glass p-1 shadow-glow">
+          {SOCIALS.map((s) => (
+            <button key={s.name} onClick={() => share(s)} className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-secondary">
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Content ---------- */
 const TYPES = ["Instagram Post", "LinkedIn Post", "Blog Post", "Email", "Caption", "Advertisement", "Product Description", "Professional Announcement", "Educational Post", "Personal Learning Post", "Project Showcase", "AI/Technology Post", "Story", "Quote", "Short-form Content"];
 const TONES = ["Professional", "Friendly", "Educational", "Inspirational", "Funny", "Creative", "Technical", "Casual", "Persuasive", "Conversational"];
@@ -164,8 +196,9 @@ function ContentStudio() {
           <Panel className="gradient-border">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold">Your draft</h3>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <GhostBtn disabled={posting} onClick={doPost}>{posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Post to LinkedIn</GhostBtn>
+                <ShareMenu text={draft} />
                 <GhostBtn onClick={() => copy(draft)}><Copy className="h-3.5 w-3.5" /> Copy</GhostBtn>
                 <GhostBtn onClick={() => download("post.txt", draft)}><Download className="h-3.5 w-3.5" /> Download</GhostBtn>
               </div>

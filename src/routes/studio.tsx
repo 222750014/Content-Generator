@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { PenLine, ImageIcon, Code2, Sparkles, Copy, Download, RefreshCw, Check, Loader2, Wand2 } from "lucide-react";
+import { PenLine, ImageIcon, Code2, Sparkles, Copy, Download, RefreshCw, Check, Loader2, Wand2, Send } from "lucide-react";
 import { genContent, refineContent, genCode, codeAction, genImage } from "@/lib/ai.functions";
+import { postToLinkedIn } from "@/lib/linkedin.functions";
 
 export const Route = createFileRoute("/studio")({
   head: () => ({
@@ -128,6 +129,17 @@ function ContentStudio() {
       setVersions(r.versions);
     } catch (e) { toast.error(errMsg(e)); } finally { setLoading(false); }
   };
+  const post = useServerFn(postToLinkedIn);
+  const [posting, setPosting] = useState(false);
+  const doPost = async () => {
+    if (!draft.trim()) return;
+    if (!window.confirm("Publish this post publicly to your LinkedIn now?")) return;
+    setPosting(true);
+    try {
+      const r = await post({ data: { text: draft } });
+      toast.success("Posted to LinkedIn", { action: { label: "View", onClick: () => window.open(r.url, "_blank") } });
+    } catch (e) { toast.error(errMsg(e)); } finally { setPosting(false); }
+  };
   const doRefine = async (action: string) => {
     setRefining(action);
     try {
@@ -153,6 +165,7 @@ function ContentStudio() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold">Your draft</h3>
               <div className="flex gap-2">
+                <GhostBtn disabled={posting} onClick={doPost}>{posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Post to LinkedIn</GhostBtn>
                 <GhostBtn onClick={() => copy(draft)}><Copy className="h-3.5 w-3.5" /> Copy</GhostBtn>
                 <GhostBtn onClick={() => download("post.txt", draft)}><Download className="h-3.5 w-3.5" /> Download</GhostBtn>
               </div>
